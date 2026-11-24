@@ -8,11 +8,12 @@ Genera un archivo FICTICIO con la estructura típica de tres listados de IPS-Maq
   * Recaudacion_Mensual -> 12 meses de recaudación por establecimiento (opcional).
 
 Incluye a propósito (siempre respecto a la fecha de hoy):
-  * 2 contratos vencidos sin prórroga y 2 prorrogados tácitamente.
+  * 2 contratos vencidos sin prórroga y 2 con prórroga automática ya vencidos.
   * 3 contratos que vencen en <= 30 días, 3 entre 31 y 60 y 2 entre 61 y 90.
   * 3 préstamos con semanas sin descontar (1 de ellos crítico).
   * 3 préstamos cuyo contrato termina antes de terminar de amortizarse.
   * 1 préstamo ya amortizado.
+  * 1 bar con 3 máquinas (por encima del máximo de 2 tipo B en hostelería valenciana).
 
 Uso:  python sample_data.py   ->  crea datos_ejemplo_contratos.xlsx
 """
@@ -102,7 +103,7 @@ def generar_datos(semilla: int = 7, hoy: date | None = None) -> dict[str, pd.Dat
             "Duración (meses)": duracion,
             "Prórroga Automática": "Sí" if prorroga else "No",
             "Preaviso (días)": int(rng.choice([30, 60, 90])) if prorroga else None,
-            "Nº Máquinas": int(rng.choice([1, 2, 2, 3])),
+            "Nº Máquinas": 3 if b == 10 else int(rng.choice([1, 2, 2])),   # B011 supera el máximo de 2
             "% Reparto Bar": 50,
         })
     df_contratos = pd.DataFrame(contratos)

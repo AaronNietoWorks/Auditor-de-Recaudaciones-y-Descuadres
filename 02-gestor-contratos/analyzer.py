@@ -281,6 +281,7 @@ def _texto(serie: pd.Series) -> pd.Series:
 
 
 DURACION_CONTRATO_MESES = 60      # contratos de instalación habituales: 5 años
+MAX_MAQUINAS_B_HOSTELERIA = 2     # Comunitat Valenciana: máximo de 2 máquinas tipo B por establecimiento de hostelería
 
 
 def aplicar_mapeo(dataset: str, df: pd.DataFrame, mapeo: dict,
@@ -384,7 +385,7 @@ GESTIONES = ["Sin gestionar", "Contactado", "En negociación", "Renovado", "No r
 
 def evaluar_contratos(contratos: pd.DataFrame, fecha_ref: date,
                       umbrales: tuple[int, int, int] = (30, 60, 90),
-                      meses_prorroga: int = 12) -> pd.DataFrame:
+                      meses_prorroga: int = 0) -> pd.DataFrame:
     """
     Añade a cada contrato su vencimiento efectivo, días restantes y semáforo:
 
@@ -410,6 +411,8 @@ def evaluar_contratos(contratos: pd.DataFrame, fecha_ref: date,
         fin_ef.append(f)
         prorrogado.append(n > 0)
     out["fin_efectivo"] = pd.to_datetime(fin_ef)
+    # Con prórroga tácita desactivada (meses_prorroga = 0) ningún contrato se renueva solo
+    out["prorroga_efectiva"] = out["prorroga"].astype(bool) & (meses_prorroga > 0)
     out["prorrogado"] = prorrogado
     out["dias_restantes"] = (out["fin_efectivo"] - ref).dt.days
     out["limite_preaviso"] = out["fin_efectivo"] - pd.to_timedelta(out["preaviso"].fillna(0), unit="D")
@@ -517,7 +520,7 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
                          .set_index("clave_bar"))
         p["fin_contrato"] = p["clave_bar"].map(c["fin_efectivo"])
         p["estado_contrato"] = p["clave_bar"].map(c["estado"]).fillna("Sin contrato")
-        p["prorroga"] = p["clave_bar"].map(c["prorroga"]).fillna(False).astype(bool)
+        p["prorroga"] = p["clave_bar"].map(c["prorroga_efectiva"]).fillna(False).astype(bool)
 
     expuesto = []
     for pend, cuo, fin, auto in zip(p["pendiente"], p["cuota"], p["fin_contrato"], p["prorroga"]):

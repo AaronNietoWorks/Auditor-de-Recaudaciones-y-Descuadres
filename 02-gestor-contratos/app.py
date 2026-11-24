@@ -242,8 +242,13 @@ with st.sidebar:
     st.number_input("Duración del contrato (meses)", 6, 240, az.DURACION_CONTRATO_MESES, 6,
                     key="duracion_contrato",
                     help="Se usa solo si el listado no trae fecha de vencimiento: vencimiento = alta + duración.")
-    meses_prorroga = st.number_input("Prórroga tácita (meses)", 1, 120, 12,
-                                     help="Duración de cada prórroga automática de los contratos que la tienen.")
+    meses_prorroga = st.number_input("Prórroga tácita (meses, 0 = no se aplica)", 0, 120, 0,
+                                     help="Por defecto 0: en la Comunitat Valenciana la autorización de instalación "
+                                          "no se renueva sola (hay que solicitarla), así que un contrato vencido se "
+                                          "trata como vencido aunque diga «prórroga automática». Pon 12, 60… si "
+                                          "vuestros contratos con el bar sí se prorrogan solos.")
+    st.caption("⚖️ Normativa: Comunitat Valenciana (Vega Baja). Máx. "
+               f"{az.MAX_MAQUINAS_B_HOSTELERIA} máquinas tipo B por bar.")
 
     st.markdown("#### 💶 Préstamos")
     periodicidad = st.radio("Descuento de la cuota", az.PERIODICIDADES, horizontal=True,
@@ -422,14 +427,18 @@ with tab_carga:
 
     with st.expander("ℹ️ Cómo se interpretan los datos (supuestos)"):
         st.markdown(
-            f"- **Vencimiento efectivo**: si el contrato tiene prórroga automática y su fecha ya pasó, se "
-            f"considera prorrogado tácitamente por periodos de {meses_prorroga} meses.\n"
-            f"- **Ventanas**: vencido (< 0 días), urgente (≤ {umbrales[0]}), próximo (≤ {umbrales[1]}), "
+            (f"- **Vencimiento efectivo**: si el contrato tiene prórroga automática y su fecha ya pasó, se "
+               f"considera prorrogado tácitamente por periodos de {meses_prorroga} meses.\n" if meses_prorroga else
+               "- **Sin prórroga tácita**: un contrato cuya fecha ya pasó figura como vencido aunque tenga prórroga "
+               "automática, porque en la Comunitat Valenciana la renovación de la autorización de instalación "
+               "hay que solicitarla.\n")
+            + f"- **Máquinas por bar**: se avisa si un contrato tiene más de {az.MAX_MAQUINAS_B_HOSTELERIA} "
+              "máquinas (máximo de tipo B en hostelería en la Comunitat Valenciana).\n"
+            + f"- **Ventanas**: vencido (< 0 días), urgente (≤ {umbrales[0]}), próximo (≤ {umbrales[1]}), "
             f"planificar (≤ {umbrales[2]}), vigente (resto).\n"
             f"- **Contratos**: duración estándar de {st.session_state.get('duracion_contrato', 60)} meses "
-            "(solo se usa si falta la fecha de vencimiento). La duración mínima y las prórrogas de la "
-            "autorización de instalación las fija el reglamento de máquinas de cada comunidad autónoma: "
-            "revisa el de la vuestra.\n"
+            "(solo se usa si falta la fecha de vencimiento). En la Comunitat Valenciana rigen la Ley 1/2020 "
+            "de juego y el Reglamento de máquinas (Decreto 115/2006); detalles y fuentes en el README.\n"
             f"- **Préstamos**: se devuelven en cuotas iguales descontadas de la recaudación "
             f"**{periodicidad.lower()}** de la máquina; la primera cuota se devenga un periodo después de la "
             "concesión. Si falta la cuota se calcula con el nº de cuotas, y si faltan ambos se asumen 36 meses.\n"
@@ -457,6 +466,12 @@ with tab_venc:
             + (f'<span class="chip gris">🔁 Prorrogados tácitamente: {kpis["n_prorrogados"]}</span>'
                if kpis["n_prorrogados"] else ""),
             unsafe_allow_html=True)
+
+        exceso = cont[cont["maquinas"] > az.MAX_MAQUINAS_B_HOSTELERIA]
+        if not exceso.empty:
+            st.warning(f"**{len(exceso)} {'establecimiento' if len(exceso) == 1 else 'establecimientos'} con más de {az.MAX_MAQUINAS_B_HOSTELERIA} máquinas** "
+                       "(máximo de tipo B en hostelería en la Comunitat Valenciana). Comprueba si alguna es de otro "
+                       "tipo: " + ", ".join(f"{b} ({int(m)})" for b, m in zip(exceso["bar"], exceso["maquinas"])))
 
         g1, g2 = st.columns([2.2, 1])
         with g1:

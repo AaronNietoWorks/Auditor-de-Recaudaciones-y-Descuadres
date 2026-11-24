@@ -1,5 +1,5 @@
 """
-app.py — Auditor de Recaudaciones y Descuadres (IPS-Maq+)
+app.py — TRUSS & CYTILAND · Auditoría de Recaudaciones y Descuadres (IPS-Maq+)
 ==========================================================
 Interfaz Streamlit. Ejecuta:  streamlit run app.py
 """
@@ -17,45 +17,91 @@ import analyzer as az
 import database as db
 import sample_data
 
+EMPRESA = "TRUSS & CYTILAND"
+NOMBRE_APP = "Auditoría de Recaudaciones y Descuadres"
+
 st.set_page_config(
-    page_title="Auditor de Recaudaciones",
+    page_title=f"{NOMBRE_APP} · {EMPRESA}",
     page_icon="🎰",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 SIN_ASIGNAR = "— Sin asignar —"
-AZUL = "#0F4C81"
+
+# --------------------------------------------------------------------------- #
+# Tema claro / oscuro
+# --------------------------------------------------------------------------- #
+# Streamlit aplica el tema nativo (config.toml define [theme.light] y [theme.dark])
+# según el sistema o lo elegido en el menú ⋮ (System / Light / Dark). Aquí detectamos cuál está activo
+# para adaptar las tarjetas HTML, las tablas y los gráficos Plotly.
+PALETAS = {
+    "light": {
+        "texto": "#0F2A4A", "texto_sec": "#64748B", "tarjeta": "#FFFFFF", "borde": "#E2E8F0",
+        "sombra": "rgba(15, 42, 74, .06)", "acento": "#0F4C81",
+        "hero": "linear-gradient(135deg, #0F4C81 0%, #1E6FB8 100%)", "hero_txt": "#E0ECF8",
+        "ok_bg": "#DCFCE7", "ok_tx": "#166534", "rev_bg": "#FEF3C7", "rev_tx": "#92400E",
+        "crit_bg": "#FDE2E2", "crit_tx": "#991B1B", "plotly": "plotly_white", "rejilla": "#E5E7EB",
+        "neutro": "#94A3B8",
+    },
+    "dark": {
+        "texto": "#E6EDF5", "texto_sec": "#94A3B8", "tarjeta": "#16202E", "borde": "#26344A",
+        "sombra": "rgba(0, 0, 0, .35)", "acento": "#4C9BE8",
+        "hero": "linear-gradient(135deg, #12355C 0%, #1B5288 100%)", "hero_txt": "#C9DDF2",
+        "ok_bg": "rgba(34,197,94,.16)", "ok_tx": "#86EFAC", "rev_bg": "rgba(245,158,11,.18)",
+        "rev_tx": "#FCD34D", "crit_bg": "rgba(239,68,68,.18)", "crit_tx": "#FCA5A5",
+        "plotly": "plotly_dark", "rejilla": "#26344A", "neutro": "#64748B",
+    },
+}
+try:
+    _tipo_tema = st.context.theme.type or "light"
+except AttributeError:  # versiones antiguas de Streamlit
+    _tipo_tema = "light"
+OSCURO = _tipo_tema == "dark"
+P = PALETAS["dark" if OSCURO else "light"]
+AZUL = P["acento"]
+
+
+def estilo_fig(fig, **kw):
+    """Aplica el tema (claro/oscuro) a una figura Plotly con fondo transparente."""
+    fig.update_layout(template=P["plotly"], paper_bgcolor="rgba(0,0,0,0)",
+                      plot_bgcolor="rgba(0,0,0,0)", font_color=P["texto"], **kw)
+    fig.update_xaxes(gridcolor=P["rejilla"], zerolinecolor=P["rejilla"])
+    fig.update_yaxes(gridcolor=P["rejilla"], zerolinecolor=P["rejilla"])
+    return fig
+
 
 # --------------------------------------------------------------------------- #
 # Estilos
 # --------------------------------------------------------------------------- #
 st.markdown(
-    """
+    f"""
     <style>
-      .block-container {padding-top: 3.2rem; padding-bottom: 3rem; max-width: 1400px;}
-      .titulo {font-size: 1.9rem; font-weight: 750; color: #0F2A4A; margin-bottom: 0;}
-      .subtitulo {color: #64748B; margin-top: .15rem; margin-bottom: 1.2rem;}
-      .kpi {background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px;
-            padding: 18px 20px; box-shadow: 0 1px 3px rgba(15, 42, 74, .06); height: 100%;}
-      .kpi .lbl {font-size: .80rem; color: #64748B; text-transform: uppercase;
-                 letter-spacing: .04em; font-weight: 600;}
-      .kpi .val {font-size: 1.75rem; font-weight: 750; color: #0F2A4A; margin-top: 4px;
-                 white-space: nowrap;}
-      .kpi .det {font-size: .82rem; color: #64748B; margin-top: 2px;}
-      .kpi.azul  {border-left: 5px solid #0F4C81;}
-      .kpi.rojo  {border-left: 5px solid #DC2626;}
-      .kpi.ambar {border-left: 5px solid #F59E0B;}
-      .kpi.verde {border-left: 5px solid #16A34A;}
-      .chip {display:inline-block; padding: 3px 12px; border-radius: 999px; font-weight: 600;
-             font-size: .85rem; margin-right: 6px;}
-      .chip.ok {background:#DCFCE7; color:#166534;}
-      .chip.rev {background:#FEF3C7; color:#92400E;}
-      .chip.crit {background:#FDE2E2; color:#991B1B;}
-      .hero {background: linear-gradient(135deg, #0F4C81 0%, #1E6FB8 100%); color: #fff;
-             border-radius: 16px; padding: 28px 32px; margin-bottom: 1rem;}
-      .hero h3 {color: #fff; margin: 0 0 .4rem 0;}
-      .hero p {color: #E0ECF8; margin: 0;}
+      .block-container {{padding-top: 3.2rem; padding-bottom: 3rem; max-width: 1400px;}}
+      .marca {{font-size: .78rem; font-weight: 700; letter-spacing: .18em; color: {P["acento"]};
+               text-transform: uppercase; margin-bottom: .1rem;}}
+      .titulo {{font-size: 1.9rem; font-weight: 750; color: {P["texto"]}; margin-bottom: 0;}}
+      .subtitulo {{color: {P["texto_sec"]}; margin-top: .15rem; margin-bottom: 1.2rem;}}
+      .kpi {{background: {P["tarjeta"]}; border: 1px solid {P["borde"]}; border-radius: 14px;
+            padding: 18px 20px; box-shadow: 0 1px 3px {P["sombra"]}; height: 100%;}}
+      .kpi .lbl {{font-size: .80rem; color: {P["texto_sec"]}; text-transform: uppercase;
+                 letter-spacing: .04em; font-weight: 600;}}
+      .kpi .val {{font-size: 1.75rem; font-weight: 750; color: {P["texto"]}; margin-top: 4px;
+                 white-space: nowrap;}}
+      .kpi .det {{font-size: .82rem; color: {P["texto_sec"]}; margin-top: 2px;}}
+      .kpi.azul  {{border-left: 5px solid {P["acento"]};}}
+      .kpi.rojo  {{border-left: 5px solid #DC2626;}}
+      .kpi.ambar {{border-left: 5px solid #F59E0B;}}
+      .kpi.verde {{border-left: 5px solid #16A34A;}}
+      .chip {{display:inline-block; padding: 3px 12px; border-radius: 999px; font-weight: 600;
+             font-size: .85rem; margin-right: 6px;}}
+      .chip.ok {{background:{P["ok_bg"]}; color:{P["ok_tx"]};}}
+      .chip.rev {{background:{P["rev_bg"]}; color:{P["rev_tx"]};}}
+      .chip.crit {{background:{P["crit_bg"]}; color:{P["crit_tx"]};}}
+      .hero {{background: {P["hero"]}; color: #fff;
+             border-radius: 16px; padding: 28px 32px; margin-bottom: 1rem;}}
+      .hero h3 {{color: #fff; margin: 0 0 .4rem 0;}}
+      .hero p {{color: {P["hero_txt"]}; margin: 0;}}
     </style>
     """,
     unsafe_allow_html=True,
@@ -192,8 +238,9 @@ def cb_vaciar() -> None:
 # Barra lateral: parámetros
 # --------------------------------------------------------------------------- #
 with st.sidebar:
-    st.markdown("### 🎰 Auditor de Recaudaciones")
-    st.caption("Exportaciones de IPS-Maq+ · sector recreativo")
+    st.markdown(f"### 🎰 {EMPRESA}")
+    st.caption(f"{NOMBRE_APP} · exportaciones de IPS-Maq+")
+    st.caption("🌓 **Modo oscuro**: menú ⋮ (arriba a la derecha) → *Dark*. Por defecto sigue el tema de tu sistema.")
 
     st.markdown("#### 🚦 Semáforo de descuadres")
     margen_ok = st.number_input("Margen OK (± €)", 0.0, 50.0, 2.0, 0.5, key="margen_ok",
@@ -232,7 +279,8 @@ with st.sidebar:
 # --------------------------------------------------------------------------- #
 # Cabecera
 # --------------------------------------------------------------------------- #
-st.markdown('<div class="titulo">Auditor de Recaudaciones y Descuadres</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="marca">{EMPRESA}</div><div class="titulo">{NOMBRE_APP}</div>',
+            unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitulo">Detecta descuadres entre contadores y efectivo, vigila caídas de recaudación '
     'por bar y máquina y genera el informe ejecutivo en segundos.</div>',
@@ -345,8 +393,8 @@ with tab_carga:
 # TAB 2 · Descuadres
 # --------------------------------------------------------------------------- #
 ESTILO_FILA = {
-    az.ESTADO_CRITICO: "background-color: #FDE2E2; color: #7F1D1D;",
-    az.ESTADO_REVISAR: "background-color: #FEF3C7; color: #78350F;",
+    az.ESTADO_CRITICO: f"background-color: {P['crit_bg']}; color: {P['crit_tx']};",
+    az.ESTADO_REVISAR: f"background-color: {P['rev_bg']}; color: {P['rev_tx']};",
     az.ESTADO_OK: "",
 }
 
@@ -376,7 +424,7 @@ with tab_desc:
                              color_discrete_map=az.COLOR_ESTADO, category_orders={"bar": orden},
                              labels={"importe": "Importe descuadrado (€)", "bar": "", "estado": "Estado"},
                              title="Importe en descuadre por establecimiento")
-                fig.update_layout(template="plotly_white", height=360, margin=dict(l=10, r=10, t=50, b=10),
+                estilo_fig(fig, height=360, margin=dict(l=10, r=10, t=50, b=10),
                                   legend=dict(orientation="h", y=-0.2), yaxis=dict(categoryorder="array",
                                                                                      categoryarray=orden))
                 st.plotly_chart(fig, width="stretch")
@@ -387,7 +435,7 @@ with tab_desc:
                                    marker=dict(colors=[az.COLOR_ESTADO[e] for e in dist.index]),
                                    textinfo="none",
                                    hovertemplate="%{label}: %{value} (%{percent})<extra></extra>"))
-            fig.update_layout(template="plotly_white", height=360, margin=dict(l=10, r=10, t=50, b=10),
+            estilo_fig(fig, height=360, margin=dict(l=10, r=10, t=50, b=10),
                               title="Distribución del semáforo", showlegend=True,
                               legend=dict(orientation="h", y=-0.1),
                               annotations=[dict(text=f"<b>{len(lote)}</b><br>operaciones",
@@ -446,12 +494,12 @@ with tab_caidas:
         with col_g:
             fig = go.Figure(go.Bar(
                 x=validos["variacion"] * 100, y=validos["entidad"], orientation="h",
-                marker_color=["#DC2626" if a else "#94A3B8" for a in validos["alerta"]],
+                marker_color=["#DC2626" if a else P["neutro"] for a in validos["alerta"]],
                 hovertemplate="%{y}<br>Variación: %{x:.1f} %<extra></extra>",
             ))
             fig.add_vline(x=-umbral_caida, line_dash="dash", line_color="#DC2626",
                           annotation_text=f"-{umbral_caida} %", annotation_position="top")
-            fig.update_layout(template="plotly_white", title="Última recaudación vs media móvil (%)",
+            estilo_fig(fig, title="Última recaudación vs media móvil (%)",
                               height=max(360, 22 * len(validos) + 80), margin=dict(l=10, r=10, t=50, b=10),
                               xaxis_title="Variación (%)", yaxis=dict(autorange="reversed"))
             st.plotly_chart(fig, width="stretch")
@@ -466,7 +514,7 @@ with tab_caidas:
             if nivel == "Por bar":
                 t = t.drop(columns="Máquina")
             estilo = (t.style
-                      .apply(lambda f: ["background-color: #FDE2E2; color: #7F1D1D;" if f["_alerta"] else ""]
+                      .apply(lambda f: [ESTILO_FILA[az.ESTADO_CRITICO] if f["_alerta"] else ""]
                              * len(f), axis=1)
                       .format({"Importe": eur, "Media": eur, "Variación": pct})
                       .hide(["_alerta"], axis="columns"))
@@ -490,7 +538,7 @@ with tab_caidas:
                                  line=dict(color="#F59E0B", width=2.5)))
         fig.add_trace(go.Scatter(x=s["fecha"], y=s["recaudacion"], name="Recaudación (contadores)",
                                  mode="lines+markers", line=dict(color=AZUL, width=2.5)))
-        fig.update_layout(template="plotly_white", height=380, margin=dict(l=10, r=10, t=30, b=10),
+        estilo_fig(fig, height=380, margin=dict(l=10, r=10, t=30, b=10),
                           yaxis_title="€", legend=dict(orientation="h", y=-0.2), hovermode="x unified")
         st.plotly_chart(fig, width="stretch")
 
@@ -537,5 +585,5 @@ with tab_inf:
             )
 
 st.divider()
-st.caption("Auditor de Recaudaciones · Python, Streamlit, Pandas, Plotly y SQLite · "
+st.caption(f"{EMPRESA} · {NOMBRE_APP} · Python, Streamlit, Pandas, Plotly y SQLite · "
            "Los datos se procesan localmente; los datos de demostración son ficticios.")

@@ -1,16 +1,16 @@
 @echo off
 setlocal EnableExtensions
 REM ==========================================================================
-REM  Auditor de Recaudaciones y Descuadres - lanzador para Windows
+REM  TRUSS y CYTILAND - Auditoria de Recaudaciones - lanzador para Windows
 REM  Doble clic: crea el entorno virtual, instala dependencias si faltan
 REM  y abre la aplicacion en el navegador.
 REM ==========================================================================
 cd /d "%~dp0"
-title Auditor de Recaudaciones
+title TRUSS ^& CYTILAND - Auditoria de Recaudaciones
 
 echo.
 echo  ===============================================
-echo    AUDITOR DE RECAUDACIONES Y DESCUADRES
+echo    TRUSS ^& CYTILAND - AUDITORIA DE RECAUDACIONES
 echo  ===============================================
 echo.
 

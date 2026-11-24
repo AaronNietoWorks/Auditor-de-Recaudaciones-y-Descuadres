@@ -375,7 +375,7 @@ def exportar_informe_excel(lote: pd.DataFrame, caidas: pd.DataFrame, kpis: dict,
         ws = wb.add_worksheet("Resumen_Ejecutivo")
         writer.sheets["Resumen_Ejecutivo"] = ws
         ws.hide_gridlines(2)
-        ws.write(0, 0, "Auditoría de Recaudaciones y Descuadres", f_titulo)
+        ws.write(0, 0, "TRUSS & CYTILAND · Auditoría de Recaudaciones y Descuadres", f_titulo)
         periodo = (f"Periodo analizado: {kpis['desde']:%d/%m/%Y} – {kpis['hasta']:%d/%m/%Y}"
                    if pd.notna(kpis["desde"]) else "")
         ws.write(1, 0, f"Generado el {datetime.now():%d/%m/%Y %H:%M}.  {periodo}", f_sub)

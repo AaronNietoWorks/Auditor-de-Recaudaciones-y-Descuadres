@@ -1,4 +1,4 @@
-# 🎰 Auditor de Recaudaciones y Descuadres
+# 🎰 TRUSS & CYTILAND · Auditoría de Recaudaciones y Descuadres
 
 **Auditoría automática de recaudaciones de máquinas recreativas a partir de exportaciones del ERP IPS-Maq+.**
 Detecta descuadres entre contadores y efectivo, vigila caídas de recaudación por bar y por máquina y genera un informe ejecutivo en Excel en segundos.
@@ -34,12 +34,17 @@ Este cuadre se hace a mano en Excel, fila a fila. Es lento, propenso a errores y
 | **Carga inteligente** | Lee `.xlsx`, `.xls` y `.csv` (separador, codificación y formato `1.234,56 €` autodetectados). Asistente visual para mapear las columnas del informe de IPS-Maq+ con **sugerencia automática** y **plantillas reutilizables** (`config_columnas.json`). Botón de **datos de demostración**. |
 | **Motor de descuadres** | Calcula `Real − Teórico` por operación y aplica un semáforo configurable: 🟢 OK (±2 €), 🟠 Revisar (2,01–15 €), 🔴 Crítico (>15 € o recaudación 0 €). |
 | **Motor de caídas** | Guarda el histórico en SQLite sin duplicados (`Fecha + Bar + Máquina`) y compara la última recaudación de cada bar/máquina con su **media móvil** de recaudaciones previas. Alerta si cae más de un **25 %** (slider). Diagnóstico: posible avería oculta, máquina apagada o cambio de tendencia. |
+| **Modo claro y oscuro** | Tema corporativo en ambos modos (sigue al sistema o se elige en el menú ⋮). Tarjetas, tablas y gráficos se adaptan automáticamente. |
 | **Dashboard** | Tarjetas KPI (total recaudado, € en descuadres, bares en alerta, horas de auditoría ahorradas), gráficos Plotly interactivos y tablas con colores de alerta. |
 | **Informe ejecutivo** | Excel multi-pestaña (`Resumen_Ejecutivo`, `Descuadres_Criticos`, `Bares_En_Riesgo`) con cabeceras corporativas, autoajuste de columnas, formato moneda €, filtros y formato condicional. |
 
 | Carga y mapeo | Caídas de rendimiento |
 |---|---|
 | ![Carga](docs/carga_mapeo.png) | ![Caídas](docs/caidas.png) |
+
+**Modo oscuro**
+
+![Modo oscuro](docs/modo_oscuro.png)
 
 ## 🏗️ Arquitectura técnica
 
@@ -52,7 +57,7 @@ Este cuadre se hace a mano en Excel, fila a fila. Es lento, propenso a errores y
 ├── lanzador.py            # Arranque local: puerto libre + apertura del navegador
 ├── iniciar_auditor.bat    # Doble clic en Windows: venv + dependencias + app
 ├── requirements.txt
-├── .streamlit/config.toml # Tema corporativo claro
+├── .streamlit/config.toml # Tema corporativo claro y oscuro
 └── docs/                  # Capturas para este README
 ```
 

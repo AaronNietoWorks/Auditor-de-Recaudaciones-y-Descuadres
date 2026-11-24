@@ -1,0 +1,38 @@
+# ==========================================================
+#  Privacidad: NUNCA subir datos reales de recaudación
+# ==========================================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.env
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Excepción: datos 100 % ficticios generados por sample_data.py
+!datos_ejemplo_ips.xlsx
+
+# Plantillas de mapeo locales (pueden revelar el formato interno de la empresa)
+config_columnas.json
+
+# Entornos virtuales y cachés
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+~$*

@@ -126,7 +126,8 @@ def _mapeo_widgets(ds: str, fm: str) -> dict:
 def procesar(ds: str, df_raw: pd.DataFrame, mapeo: dict, origen: str) -> bool:
     """Aplica el mapeo y guarda el listado en SQLite."""
     try:
-        limpio, avisos = az.aplicar_mapeo(ds, df_raw, mapeo)
+        limpio, avisos = az.aplicar_mapeo(ds, df_raw, mapeo,
+                                          duracion_defecto=st.session_state.get("duracion_contrato", 60))
     except ValueError as e:
         avisar("error", f"**{az.DATASETS[ds]['titulo']}**: {e}")
         return False
@@ -238,12 +239,22 @@ with st.sidebar:
     u3 = st.number_input("🔵 Planificar si vence en menos de…", 1, 1095, 90, 5)
     if not u1 < u2 < u3:
         st.warning("Las ventanas deben ser crecientes: Urgente < Próximo < Planificar.")
-    meses_prorroga = st.number_input("Prórroga tácita (meses)", 1, 60, 12,
+    st.number_input("Duración del contrato (meses)", 6, 240, az.DURACION_CONTRATO_MESES, 6,
+                    key="duracion_contrato",
+                    help="Se usa solo si el listado no trae fecha de vencimiento: vencimiento = alta + duración.")
+    meses_prorroga = st.number_input("Prórroga tácita (meses)", 1, 120, 12,
                                      help="Duración de cada prórroga automática de los contratos que la tienen.")
 
     st.markdown("#### 💶 Préstamos")
-    tolerancia = st.number_input("Riesgo a partir de… (cuotas atrasadas)", 0.5, 12.0, 1.0, 0.5)
-    critico = st.number_input("Crítico a partir de… (cuotas atrasadas)", 1.0, 24.0, 3.0, 0.5)
+    periodicidad = st.radio("Descuento de la cuota", az.PERIODICIDADES, horizontal=True,
+                            format_func=lambda x: f"{x} (de la recaudación)" if x == az.SEMANAL else x,
+                            help="Cada cuánto se descuenta la cuota de la recaudación de la máquina. "
+                                 "La cuota y el nº de cuotas del listado se interpretan en esta periodicidad.")
+    unidad = "semanas" if periodicidad == az.SEMANAL else "cuotas mensuales"
+    tolerancia = st.number_input(f"Riesgo a partir de… ({unidad} sin descontar)", 0.5, 52.0,
+                                 2.0 if periodicidad == az.SEMANAL else 1.0, 0.5)
+    critico = st.number_input(f"Crítico a partir de… ({unidad} sin descontar)", 1.0, 104.0,
+                              6.0 if periodicidad == az.SEMANAL else 3.0, 0.5)
 
     st.markdown("#### ⏱️ Ahorro de tiempo")
     minutos = st.number_input("Minutos de revisión manual por contrato/préstamo", 0.5, 15.0, 3.0, 0.5)
@@ -294,7 +305,7 @@ prestamos_db = db.cargar_cartera("prestamos")
 rec_db = db.cargar_recaudacion()
 
 cont = az.evaluar_contratos(contratos_db, fecha_ref, umbrales, meses_prorroga) if not contratos_db.empty else None
-prest = (az.evaluar_prestamos(prestamos_db, cont, fecha_ref, tolerancia, critico)
+prest = (az.evaluar_prestamos(prestamos_db, cont, fecha_ref, tolerancia, critico, periodicidad)
          if not prestamos_db.empty else None)
 hay_rec = not rec_db.empty
 if cont is not None and hay_rec:
@@ -307,7 +318,7 @@ if cont is not None:
     cont = cont.merge(seg[["id_contrato", "gestion", "nota"]], on="id_contrato", how="left")
     cont["gestion"] = cont["gestion"].fillna("Sin gestionar")
     cont["nota"] = cont["nota"].fillna("")
-calendario = az.calendario_amortizacion(prest, fecha_ref) if prest is not None else None
+calendario = az.calendario_amortizacion(prest, fecha_ref, 24, periodicidad) if prest is not None else None
 kpis = az.calcular_kpis(cont, prest, minutos)
 hay_datos = cont is not None or prest is not None
 
@@ -415,9 +426,13 @@ with tab_carga:
             f"considera prorrogado tácitamente por periodos de {meses_prorroga} meses.\n"
             f"- **Ventanas**: vencido (< 0 días), urgente (≤ {umbrales[0]}), próximo (≤ {umbrales[1]}), "
             f"planificar (≤ {umbrales[2]}), vigente (resto).\n"
-            "- **Préstamos**: se devuelven en cuotas mensuales iguales (normalmente retenidas de la liquidación "
-            "del bar); la primera cuota se devenga un mes después de la concesión. Si falta la cuota se calcula "
-            "con el nº de cuotas, y si faltan ambos se asumen 36 meses.\n"
+            f"- **Contratos**: duración estándar de {st.session_state.get('duracion_contrato', 60)} meses "
+            "(solo se usa si falta la fecha de vencimiento). La duración mínima y las prórrogas de la "
+            "autorización de instalación las fija el reglamento de máquinas de cada comunidad autónoma: "
+            "revisa el de la vuestra.\n"
+            f"- **Préstamos**: se devuelven en cuotas iguales descontadas de la recaudación "
+            f"**{periodicidad.lower()}** de la máquina; la primera cuota se devenga un periodo después de la "
+            "concesión. Si falta la cuota se calcula con el nº de cuotas, y si faltan ambos se asumen 36 meses.\n"
             "- **Retraso** = lo que debería estar devuelto a la fecha de referencia − lo realmente amortizado.\n"
             "- **Saldo al vencer contrato**: lo que quedaría por devolver el día que vence el contrato si se "
             "sigue cobrando la cuota actual (0 si el contrato se prorroga solo).\n"
@@ -622,13 +637,13 @@ with tab_prest:
         tp = pd.DataFrame({
             "Estado": vp["estado"], "Establecimiento": vp["bar"], "Motivo": vp["motivo"],
             "Pendiente": vp["pendiente"], "Atrasado": vp["retraso_eur"], "% devuelto": vp["pct_amortizado"],
-            "Importe": vp["importe"], "Cuota": vp["cuota"], "Préstamo": vp["prestamo"],
+            "Importe": vp["importe"], f"Cuota {periodicidad.lower()}": vp["cuota"], "Préstamo": vp["prestamo"],
             "Concesión": vp["fecha"].dt.strftime("%d/%m/%Y"),
             "Fin previsto": vp["fin_previsto"].dt.strftime("%m/%Y"),
             "Vence contrato": vp["fin_contrato"].dt.strftime("%d/%m/%Y"),
             "Saldo al vencer contrato": vp["expuesto_fin_contrato"],
         })
-        formatos = {c: eur for c in ["Importe", "Cuota", "Pendiente", "Atrasado", "Saldo al vencer contrato"]}
+        formatos = {c: eur for c in ["Importe", f"Cuota {periodicidad.lower()}", "Pendiente", "Atrasado", "Saldo al vencer contrato"]}
         formatos["% devuelto"] = lambda x: f"{x * 100:.0f} %"
         if "meses_recaudacion" in vp:
             tp["% liquidación retenida"] = vp["peso_cuota_liq"]
@@ -650,12 +665,12 @@ with tab_prest:
                 elegido = st.selectbox("Préstamo", opciones)
                 fila = prest[prest["pendiente"] > 0.01].iloc[opciones.index(elegido)]
                 cal = calendario[(calendario["bar"] == fila["bar"]) & (calendario["prestamo"] == fila["prestamo"])]
-                st.dataframe(pd.DataFrame({"Mes": cal["mes"].dt.strftime("%m/%Y"), "Cuota": cal["cuota"],
+                st.dataframe(pd.DataFrame({"Fecha": cal["fecha"].dt.strftime("%d/%m/%Y"), "Cuota": cal["cuota"],
                                            "Saldo tras la cuota": cal["saldo"]})
                              .style.format({"Cuota": eur, "Saldo tras la cuota": eur}), hide_index=True)
                 if fila["cuotas_restantes"] > len(cal):
-                    st.caption(f"Se muestran 24 de {fila['cuotas_restantes']} cuotas pendientes. Fin previsto: "
-                               f"{fila['fin_previsto']:%m/%Y}.")
+                    st.caption(f"Se muestran los próximos 24 meses ({len(cal)} de {fila['cuotas_restantes']} "
+                               f"cuotas pendientes). Fin previsto: {fila['fin_previsto']:%d/%m/%Y}.")
 
 # --------------------------------------------------------------------------- #
 # TAB 4 · Informe ejecutivo
@@ -669,8 +684,9 @@ with tab_inf:
             "Ventanas de aviso": f"Urgente ≤ {umbrales[0]} d · Próximo ≤ {umbrales[1]} d · "
                                  f"Planificar ≤ {umbrales[2]} d",
             "Prórroga tácita": f"{meses_prorroga} meses",
-            "Criterio préstamos": f"Riesgo ≥ {num(tolerancia, 1)} cuotas atrasadas o contrato que vence antes de "
-                                  f"amortizar · Crítico ≥ {num(critico, 1)} cuotas o contrato vencido",
+            "Descuento de cuotas": f"{periodicidad} (de la recaudación de la máquina)",
+            "Criterio préstamos": f"Riesgo ≥ {num(tolerancia, 1)} {unidad} sin descontar o contrato que vence antes "
+                                  f"de amortizar · Crítico ≥ {num(critico, 1)} {unidad} o contrato vencido",
         }
         informe = az.exportar_informe_excel(cont, prest, calendario, kpis, parametros)
         c1, c2 = st.columns([1.4, 1])

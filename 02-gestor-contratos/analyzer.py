@@ -36,9 +36,10 @@ DATASETS: dict[str, dict] = {
         "hoja": "contrat",
         "campos": {
             "bar":        {"etiqueta": "Establecimiento (código/nombre)", "obligatorio": True},
-            "fecha_fin":  {"etiqueta": "Fecha de vencimiento",            "obligatorio": True},
+            "fecha_fin":  {"etiqueta": "Fecha de vencimiento",            "obligatorio": False},
             "contrato":   {"etiqueta": "Código de contrato",              "obligatorio": False},
             "fecha_alta": {"etiqueta": "Fecha de alta / firma",           "obligatorio": False},
+            "duracion":   {"etiqueta": "Duración (meses)",                "obligatorio": False},
             "prorroga":   {"etiqueta": "Prórroga automática (Sí/No)",     "obligatorio": False},
             "preaviso":   {"etiqueta": "Preaviso (días)",                 "obligatorio": False},
             "ruta":       {"etiqueta": "Ruta / zona",                     "obligatorio": False},
@@ -55,6 +56,7 @@ DATASETS: dict[str, dict] = {
             "prorroga": ["prorroga automatica", "prorroga", "renovacion automatica", "renovacion",
                          "tacita", "auto renovacion"],
             "preaviso": ["preaviso dias", "preaviso", "dias preaviso", "aviso"],
+            "duracion": ["duracion meses", "duracion", "plazo meses", "vigencia meses", "meses"],
             "ruta": ["ruta", "zona", "recaudador", "comercial"],
             "maquinas": ["n maquinas", "num maquinas", "maquinas", "unidades", "n terminales"],
         },
@@ -67,7 +69,7 @@ DATASETS: dict[str, dict] = {
             "importe":    {"etiqueta": "Importe concedido",               "obligatorio": True},
             "fecha":      {"etiqueta": "Fecha de concesión",              "obligatorio": True},
             "prestamo":   {"etiqueta": "Nº de préstamo",                  "obligatorio": False},
-            "cuota":      {"etiqueta": "Cuota mensual",                   "obligatorio": False},
+            "cuota":      {"etiqueta": "Cuota (semanal o mensual)",       "obligatorio": False},
             "n_cuotas":   {"etiqueta": "Nº de cuotas",                    "obligatorio": False},
             "amortizado": {"etiqueta": "Importe amortizado / devuelto",   "obligatorio": False},
             "pendiente":  {"etiqueta": "Saldo pendiente",                 "obligatorio": False},
@@ -80,8 +82,10 @@ DATASETS: dict[str, dict] = {
             "fecha": ["fecha concesion", "f concesion", "fecha prestamo", "fecha anticipo", "fecha alta",
                       "fecha entrega", "fecha"],
             "prestamo": ["n prestamo", "num prestamo", "cod prestamo", "prestamo", "anticipo", "referencia"],
-            "cuota": ["cuota mensual", "cuota", "retencion mensual", "descuento mensual", "mensualidad"],
-            "n_cuotas": ["n cuotas", "num cuotas", "numero cuotas", "cuotas", "plazo meses", "plazo"],
+            "cuota": ["cuota semanal", "cuota mensual", "cuota", "retencion semanal", "retencion mensual",
+                      "descuento semanal", "descuento mensual", "retencion", "descuento", "mensualidad"],
+            "n_cuotas": ["n cuotas", "num cuotas", "numero cuotas", "cuotas", "plazo semanas", "plazo meses",
+                         "semanas", "plazo"],
             "amortizado": ["importe amortizado", "amortizado", "devuelto", "cobrado", "descontado",
                            "retenido"],
             "pendiente": ["saldo pendiente", "pendiente", "saldo", "deuda", "resto"],
@@ -276,10 +280,21 @@ def _texto(serie: pd.Series) -> pd.Series:
     return serie.astype(str).str.strip().replace({"nan": "", "None": "", "<NA>": ""})
 
 
-def aplicar_mapeo(dataset: str, df: pd.DataFrame, mapeo: dict) -> tuple[pd.DataFrame, list[str]]:
-    """Renombra y tipa las columnas según el mapeo. Devuelve (df_limpio, avisos)."""
+DURACION_CONTRATO_MESES = 60      # contratos de instalación habituales: 5 años
+
+
+def aplicar_mapeo(dataset: str, df: pd.DataFrame, mapeo: dict,
+                  duracion_defecto: int = DURACION_CONTRATO_MESES) -> tuple[pd.DataFrame, list[str]]:
+    """
+    Renombra y tipa las columnas según el mapeo. Devuelve (df_limpio, avisos).
+
+    En contratos, si no hay fecha de vencimiento se calcula como fecha de alta + duración
+    (columna «Duración (meses)» o, si falta, `duracion_defecto` meses).
+    """
     defin = campos(dataset)
     faltan = [d["etiqueta"] for c, d in defin.items() if d["obligatorio"] and not mapeo.get(c)]
+    if dataset == "contratos" and not mapeo.get("fecha_fin") and not mapeo.get("fecha_alta"):
+        faltan.append("Fecha de vencimiento (o, en su defecto, Fecha de alta)")
     if faltan:
         raise ValueError("Faltan columnas obligatorias: " + ", ".join(faltan))
 
@@ -298,6 +313,14 @@ def aplicar_mapeo(dataset: str, df: pd.DataFrame, mapeo: dict) -> tuple[pd.DataF
             "preaviso": a_numero(col("preaviso")),
             "maquinas": a_numero(col("maquinas")),
         })
+        duracion = a_numero(col("duracion")).where(lambda x: x > 0).fillna(duracion_defecto)
+        calcular = out["fecha_fin"].isna() & out["fecha_alta"].notna()
+        if calcular.any():
+            out.loc[calcular, "fecha_fin"] = [
+                a + pd.DateOffset(months=int(m)) for a, m in zip(out.loc[calcular, "fecha_alta"],
+                                                                  duracion[calcular])]
+            avisos.append(f"{int(calcular.sum())} contratos sin fecha de vencimiento: se calcula como fecha de "
+                          f"alta + duración ({duracion_defecto} meses si no se indica).")
         invalidas = (out["bar"] == "") | out["fecha_fin"].isna()
         motivo = "sin establecimiento o fecha de vencimiento válida"
         unica = ["bar", "contrato"]
@@ -409,8 +432,13 @@ ESTADOS_PRESTAMO = [P_CRITICO, P_RIESGO, P_AL_DIA, P_AMORTIZADO]
 COLOR_PRESTAMO = {P_CRITICO: "#DC2626", P_RIESGO: "#F59E0B", P_AL_DIA: "#16A34A", P_AMORTIZADO: "#94A3B8"}
 
 
+SEMANAL, MENSUAL = "Semanal", "Mensual"
+PERIODICIDADES = [SEMANAL, MENSUAL]
+CUOTAS_AL_MES = {SEMANAL: 52 / 12, MENSUAL: 1.0}
+
+
 def _meses_entre(desde: pd.Timestamp, hasta: pd.Timestamp) -> int:
-    """Meses completos transcurridos (cuotas mensuales devengadas)."""
+    """Meses completos transcurridos."""
     if pd.isna(desde) or pd.isna(hasta) or hasta < desde:
         return 0
     m = (hasta.year - desde.year) * 12 + (hasta.month - desde.month)
@@ -419,16 +447,33 @@ def _meses_entre(desde: pd.Timestamp, hasta: pd.Timestamp) -> int:
     return max(m, 0)
 
 
+def periodos_entre(desde: pd.Timestamp, hasta: pd.Timestamp, periodicidad: str = SEMANAL) -> int:
+    """Cuotas completas devengadas entre dos fechas (semanas o meses)."""
+    if periodicidad == MENSUAL:
+        return _meses_entre(desde, hasta)
+    if pd.isna(desde) or pd.isna(hasta) or hasta < desde:
+        return 0
+    return int((hasta - desde).days // 7)
+
+
+def sumar_periodos(fecha: pd.Timestamp, n: int, periodicidad: str = SEMANAL) -> pd.Timestamp:
+    if periodicidad == MENSUAL:
+        return fecha + pd.DateOffset(months=int(n))
+    return fecha + pd.Timedelta(weeks=int(n))
+
+
 def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None, fecha_ref: date,
                       tolerancia_cuotas: float = 1.0, critico_cuotas: float = 3.0,
-                      plazo_defecto: int = 36) -> pd.DataFrame:
+                      periodicidad: str = SEMANAL, plazo_defecto_meses: int = 36) -> pd.DataFrame:
     """
     Calcula para cada préstamo: cuota, cuotas devengadas, importe que debería estar devuelto,
     saldo pendiente, retraso (en € y en cuotas), fecha prevista de amortización y el cruce con
     el contrato del establecimiento.
 
-    Supuesto: el préstamo se devuelve en cuotas mensuales iguales (habitualmente retenidas de la
-    liquidación del bar), y la primera cuota se devenga un mes después de la concesión.
+    Supuesto: el préstamo se devuelve en cuotas iguales descontadas de la recaudación de la
+    máquina con la `periodicidad` indicada (semanal por defecto: se descuenta en cada recaudación
+    semanal). La primera cuota se devenga un periodo después de la concesión. Las cuotas y el
+    nº de cuotas del listado se interpretan en esa misma periodicidad.
 
     Semáforo:
     * Crítico : retraso >= `critico_cuotas` cuotas, o contrato vencido con saldo pendiente.
@@ -438,13 +483,16 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
     """
     ref = pd.Timestamp(fecha_ref).normalize()
     p = prestamos.copy()
+    plazo_defecto = max(1, round(plazo_defecto_meses * CUOTAS_AL_MES[periodicidad]))
     plazo = p["n_cuotas"].where(p["n_cuotas"] > 0)
     cuota = p["cuota"].where(p["cuota"] > 0)
     cuota = cuota.fillna(p["importe"] / plazo).fillna(p["importe"] / plazo_defecto)
     plazo = plazo.fillna(np.ceil((p["importe"] / cuota).round(6)))
     p["cuota"], p["n_cuotas"] = cuota.round(2), plazo.astype(int)
+    p["cuota_mensual_eq"] = (p["cuota"] * CUOTAS_AL_MES[periodicidad]).round(2)
 
-    p["cuotas_devengadas"] = [min(_meses_entre(f, ref), n) for f, n in zip(p["fecha"], p["n_cuotas"])]
+    p["cuotas_devengadas"] = [min(periodos_entre(f, ref, periodicidad), n)
+                              for f, n in zip(p["fecha"], p["n_cuotas"])]
     p["esperado"] = np.minimum(p["importe"], p["cuotas_devengadas"] * p["cuota"]).round(2)
     amort = p["amortizado"].copy()
     amort = amort.fillna(p["importe"] - p["pendiente"])
@@ -456,8 +504,7 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
     p["retraso_cuotas"] = (p["retraso_eur"] / p["cuota"]).round(1)
     p["pct_amortizado"] = (p["amortizado"] / p["importe"]).clip(0, 1)
     p["cuotas_restantes"] = np.ceil((p["pendiente"] / p["cuota"]).round(6)).astype(int)
-    mes_base = ref.to_period("M").to_timestamp()
-    p["fin_previsto"] = [mes_base + pd.DateOffset(months=int(n)) if n > 0 else pd.NaT
+    p["fin_previsto"] = [sumar_periodos(ref, n, periodicidad) if n > 0 else pd.NaT
                          for n in p["cuotas_restantes"]]
 
     # Cruce con contratos
@@ -472,13 +519,13 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
         p["estado_contrato"] = p["clave_bar"].map(c["estado"]).fillna("Sin contrato")
         p["prorroga"] = p["clave_bar"].map(c["prorroga"]).fillna(False).astype(bool)
 
-    meses_hasta_fin = [(_meses_entre(ref, f) if pd.notna(f) else None) for f in p["fin_contrato"]]
     expuesto = []
-    for pend, cuo, m, auto in zip(p["pendiente"], p["cuota"], meses_hasta_fin, p["prorroga"]):
-        if m is None or auto or pend <= 0:
+    for pend, cuo, fin, auto in zip(p["pendiente"], p["cuota"], p["fin_contrato"], p["prorroga"]):
+        if pd.isna(fin) or auto or pend <= 0:
             expuesto.append(0.0)
         else:
-            expuesto.append(round(max(0.0, pend - cuo * m), 2))
+            n = periodos_entre(ref, fin, periodicidad)
+            expuesto.append(round(max(0.0, pend - cuo * n), 2))
     p["expuesto_fin_contrato"] = expuesto
 
     activo = p["pendiente"] > 0.01
@@ -488,6 +535,7 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
                        | p["estado_contrato"].eq("Sin contrato"))
     p["estado"] = np.select([~activo, critico, riesgo], [P_AMORTIZADO, P_CRITICO, P_RIESGO], default=P_AL_DIA)
 
+    unidad = "semanas" if periodicidad == SEMANAL else "cuotas mensuales"
     motivos = []
     for r in p.itertuples():
         m = []
@@ -499,7 +547,7 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
         elif r.estado_contrato == "Sin contrato":
             m.append("No se encuentra su contrato")
         if r.retraso_cuotas >= tolerancia_cuotas:
-            m.append(f"{str(r.retraso_cuotas).replace('.', ',')} cuotas atrasadas")
+            m.append(f"{str(r.retraso_cuotas).replace('.', ',')} {unidad} sin descontar")
         if r.expuesto_fin_contrato > 0 and r.estado_contrato != VENCIDO:
             m.append(f"El contrato vence antes de amortizar ({r.expuesto_fin_contrato:,.0f} € pendientes)"
                      .replace(",", "."))
@@ -511,20 +559,28 @@ def evaluar_prestamos(prestamos: pd.DataFrame, contratos_ev: pd.DataFrame | None
     return p.sort_values(["orden", "pendiente"], ascending=[True, False]).reset_index(drop=True)
 
 
-def calendario_amortizacion(prestamos_ev: pd.DataFrame, fecha_ref: date, meses: int = 24) -> pd.DataFrame:
-    """Proyección mensual de cobros pendientes (cuota a cuota) a partir del mes siguiente."""
-    mes_base = pd.Timestamp(fecha_ref).to_period("M").to_timestamp()
+def calendario_amortizacion(prestamos_ev: pd.DataFrame, fecha_ref: date, meses: int = 24,
+                            periodicidad: str = SEMANAL) -> pd.DataFrame:
+    """
+    Proyección de cobros pendientes cuota a cuota durante los próximos `meses` meses.
+    Devuelve una fila por cuota con su fecha y el mes al que pertenece (para agregar).
+    """
+    ref = pd.Timestamp(fecha_ref).normalize()
+    limite = ref + pd.DateOffset(months=meses)
     filas = []
     for r in prestamos_ev[prestamos_ev["pendiente"] > 0.01].itertuples():
         saldo = float(r.pendiente)
-        for k in range(1, meses + 1):
-            if saldo <= 0.01:
+        k = 1
+        while saldo > 0.01:
+            f = sumar_periodos(ref, k, periodicidad)
+            if f > limite:
                 break
             pago = round(min(float(r.cuota), saldo), 2)
             saldo = round(saldo - pago, 2)
-            filas.append({"mes": mes_base + pd.DateOffset(months=k), "bar": r.bar,
+            filas.append({"fecha": f, "mes": f.to_period("M").to_timestamp(), "bar": r.bar,
                           "prestamo": r.prestamo, "cuota": pago, "saldo": saldo})
-    return pd.DataFrame(filas, columns=["mes", "bar", "prestamo", "cuota", "saldo"])
+            k += 1
+    return pd.DataFrame(filas, columns=["fecha", "mes", "bar", "prestamo", "cuota", "saldo"])
 
 
 # --------------------------------------------------------------------------- #
@@ -554,7 +610,7 @@ def cruzar_recaudacion(contratos_ev: pd.DataFrame, prestamos_ev: pd.DataFrame | 
     if p is not None and not p.empty:
         p = p.merge(rec_mes[["clave_bar", "rec_mensual", "liq_mensual"]], on="clave_bar", how="left")
         p["meses_recaudacion"] = p["pendiente"] / p["rec_mensual"]
-        p["peso_cuota_liq"] = p["cuota"] / p["liq_mensual"]
+        p["peso_cuota_liq"] = p["cuota_mensual_eq"] / p["liq_mensual"]
     return c, p
 
 
@@ -751,7 +807,6 @@ def exportar_informe_excel(contratos_ev: pd.DataFrame | None, prestamos_ev: pd.D
         # ---------------- Calendario_Cobros ---------------- #
         ws4 = wb.add_worksheet("Calendario_Cobros")
         ws4.write(0, 0, "Previsión mensual de cuotas pendientes de cobro", f_titulo)
-        ws4.write(1, 0, "Proyección a cuota constante desde el mes siguiente a la fecha de referencia.", f_sub)
         if calendario is None or calendario.empty:
             ws4.write(3, 0, "No hay préstamos con saldo pendiente.", f_txt_b)
         else:
@@ -764,6 +819,8 @@ def exportar_informe_excel(contratos_ev: pd.DataFrame | None, prestamos_ev: pd.D
             fmts["TOTAL MES"] = f_eur_b
             tabla(ws4, piv, 3, fmts)
             ws4.freeze_panes(4, 2)
+            ws4.write(1, 0, "Suma por mes de las cuotas previstas (proyección a cuota constante desde la fecha "
+                            "de referencia).", f_sub)
 
         for hoja in (ws, ws2, ws3, ws4):
             hoja.set_landscape()

@@ -10,7 +10,7 @@ Genera un archivo FICTICIO con la estructura típica de tres listados de IPS-Maq
 Incluye a propósito (siempre respecto a la fecha de hoy):
   * 2 contratos vencidos sin prórroga y 2 prorrogados tácitamente.
   * 3 contratos que vencen en <= 30 días, 3 entre 31 y 60 y 2 entre 61 y 90.
-  * 3 préstamos con cuotas atrasadas (1 de ellos crítico).
+  * 3 préstamos con semanas sin descontar (1 de ellos crítico).
   * 3 préstamos cuyo contrato termina antes de terminar de amortizarse.
   * 1 préstamo ya amortizado.
 
@@ -49,20 +49,21 @@ PRORROGADOS = {6: 345, 12: 200}          # 6 -> el nuevo vencimiento cae en ~20 
 # Vencimientos fijos (días) sin prórroga para que el escenario de préstamos sea reproducible
 FIN_FIJO = {4: 1500, 9: 900, 13: 700, 15: 1200, 19: 1000, 21: 400, 24: 1400}
 
-# Préstamos: índice de bar -> (importe, nº cuotas, meses desde concesión, cuotas de retraso)
+# Préstamos (se descuentan de la recaudación SEMANAL de la máquina):
+# índice de bar -> (importe, nº de cuotas semanales, semanas desde la concesión, semanas sin descontar)
 PRESTAMOS = {
-    1:  (6000, 36, 14, 0),
-    3:  (4500, 30, 26, 0),               # contrato vencido con saldo pendiente -> crítico
-    4:  (9000, 48, 20, 2),               # 2 cuotas atrasadas
-    8:  (12000, 48, 18, 0),              # contrato vence en 21 días con mucho saldo
-    9:  (3000, 24, 9, 0),
-    11: (15000, 60, 22, 0),              # contrato vence en 52 días
-    13: (7200, 36, 30, 0),
-    15: (5000, 40, 16, 1.5),             # 1,5 cuotas atrasadas
-    19: (8000, 40, 24, 4),               # 4 cuotas atrasadas -> crítico
-    21: (10000, 60, 11, 0),              # contrato vence en ~13 meses, quedan 49 cuotas
-    23: (3600, 24, 25, 0),               # ya amortizado
-    24: (6000, 48, 6, 0),
+    1:  (6000, 156, 60, 0),
+    3:  (4500, 130, 113, 0),             # contrato vencido con saldo pendiente -> crítico
+    4:  (9000, 208, 87, 3),              # 3 semanas sin descontar -> riesgo
+    8:  (12000, 208, 78, 0),             # contrato vence en 21 días con mucho saldo
+    9:  (3000, 104, 39, 0),
+    11: (15000, 260, 95, 0),             # contrato vence en 52 días
+    13: (7200, 156, 130, 0),
+    15: (5000, 173, 69, 2),              # 2 semanas sin descontar -> riesgo
+    19: (8000, 173, 104, 9),             # 9 semanas sin descontar -> crítico
+    21: (10000, 260, 48, 0),             # contrato vence en ~13 meses, quedan ~4 años de cuotas
+    23: (3600, 104, 108, 0),             # ya amortizado
+    24: (6000, 208, 26, 0),
 }
 
 
@@ -79,7 +80,7 @@ def generar_datos(semilla: int = 7, hoy: date | None = None) -> dict[str, pd.Dat
     contratos = []
     for b, nombre in enumerate(BARES):
         cod = f"B{b + 1:03d}"
-        duracion = int(rng.choice([36, 48, 60]))
+        duracion = 60                     # contratos de instalación a 5 años
         prorroga = b in PRORROGADOS or b % 4 == 1
         if b in VENCIMIENTOS:
             fin = hoy + timedelta(days=VENCIMIENTOS[b])
@@ -108,10 +109,10 @@ def generar_datos(semilla: int = 7, hoy: date | None = None) -> dict[str, pd.Dat
 
     # ------------------------------------------------------------------ Préstamos
     prestamos = []
-    for b, (importe, n_cuotas, meses, atraso) in PRESTAMOS.items():
+    for b, (importe, n_cuotas, semanas, atraso) in PRESTAMOS.items():
         cuota = round(importe / n_cuotas, 2)
-        concesion = _sumar_meses(hoy, -meses) - timedelta(days=int(rng.integers(0, 20)))
-        devengadas = min(meses, n_cuotas)
+        concesion = hoy - timedelta(weeks=semanas, days=int(rng.integers(0, 6)))
+        devengadas = min(semanas, n_cuotas)
         amortizado = round(min(importe, max(0.0, (devengadas - atraso) * cuota)), 2)
         if devengadas >= n_cuotas and atraso == 0:
             amortizado = float(importe)
@@ -120,8 +121,8 @@ def generar_datos(semilla: int = 7, hoy: date | None = None) -> dict[str, pd.Dat
             "Establecimiento": f"B{b + 1:03d} - {BARES[b]}",
             "Fecha Concesión": pd.Timestamp(concesion),
             "Importe Concedido": float(importe),
-            "Cuota Mensual": cuota,
-            "Nº Cuotas": n_cuotas,
+            "Cuota Semanal": cuota,
+            "Nº Cuotas (semanas)": n_cuotas,
             "Importe Amortizado": amortizado,
             "Saldo Pendiente": round(importe - amortizado, 2),
         })

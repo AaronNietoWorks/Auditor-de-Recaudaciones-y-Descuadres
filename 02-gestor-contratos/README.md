@@ -17,7 +17,7 @@ Módulo 2 de la suite [Automatizaciones TRUSS/CYTILAND](../README.md).
 
 ## 💼 El problema de negocio
 
-Una operadora tiene firmados decenas de contratos de instalación con bares y cafeterías, y a muchos de ellos les ha adelantado dinero (préstamos o anticipos) que se recupera reteniendo una cuota de cada liquidación.
+Una operadora tiene firmados decenas de contratos de instalación con bares y cafeterías, y a muchos de ellos les ha adelantado dinero (préstamos o anticipos) que se recupera descontando una cuota de cada recaudación semanal de la máquina.
 
 En el día a día eso se controla con listados sueltos y la memoria del comercial. Las consecuencias son conocidas:
 
@@ -34,7 +34,7 @@ En el día a día eso se controla con listados sueltos y la memoria del comercia
 | **Carga inteligente** | Tres listados (contratos, préstamos y recaudación opcional) en `.xlsx`, `.xls` o `.csv`, con **selección de hoja**, sugerencia automática de columnas, **plantillas reutilizables** (`config_columnas.json`) y botón de **datos de demostración**. |
 | **Semáforo de vencimientos** | ⛔ Vencido · 🔴 Urgente (≤ 30 d) · 🟠 Próximo (≤ 60 d) · 🔵 Planificar (≤ 90 d) · 🟢 Vigente. Ventanas configurables, **prórrogas tácitas** y **fecha límite de preaviso**. |
 | **Seguimiento de renovaciones** | Tabla editable para marcar cada contrato como *Contactado, En negociación, Renovado* o *No renueva*, con nota libre. Se guarda en SQLite y se conserva entre cargas. |
-| **Control de préstamos** | Saldo pendiente, **cuotas atrasadas** (lo que debería estar devuelto vs. lo devuelto), fecha prevista de fin y **saldo que quedaría al vencer el contrato**. Semáforo: 🔴 Crítico · 🟠 Riesgo · 🟢 Al día · ⚪ Amortizado. |
+| **Control de préstamos** | Cuota **semanal o mensual** (descontada de la recaudación de la máquina), saldo pendiente, **semanas sin descontar** (lo que debería estar devuelto vs. lo devuelto), fecha prevista de fin y **saldo que quedaría al vencer el contrato**. Semáforo: 🔴 Crítico · 🟠 Riesgo · 🟢 Al día · ⚪ Amortizado. |
 | **Cruce con recaudación** | Recaudación media mensual por bar para **priorizar renovaciones por dinero en juego** y ver qué parte de la liquidación del bar se va en la cuota. |
 | **Dashboard e informe** | KPIs (contratos por renovar, recaudación en juego, capital pendiente y en riesgo, horas ahorradas), gráficos Plotly y Excel multi-pestaña (`Resumen_Ejecutivo`, `Vencimientos`, `Prestamos`, `Calendario_Cobros`). |
 
@@ -76,10 +76,13 @@ Decisiones de diseño:
 
 ### Supuestos del cálculo
 
-- Los préstamos se devuelven en **cuotas mensuales iguales**, con la primera cuota un mes después de la concesión. Si falta la cuota se deduce del nº de cuotas; si faltan ambos se asumen 36 meses.
+- Los préstamos se devuelven en **cuotas iguales descontadas de la recaudación semanal de la máquina** (periodicidad configurable: semanal o mensual), con la primera cuota un periodo después de la concesión. Si falta la cuota se deduce del nº de cuotas; si faltan ambos se asumen 36 meses.
+- Los contratos de instalación son de **5 años** (configurable). Si el listado no trae fecha de vencimiento, se calcula como fecha de alta + duración.
 - **Retraso** = importe que debería estar devuelto hoy − importe realmente amortizado (o importe − saldo pendiente).
-- **Crítico**: ≥ 3 cuotas atrasadas o contrato vencido con saldo. **Riesgo**: ≥ 1 cuota atrasada, contrato que termina antes de amortizar o préstamo sin contrato localizado. Umbrales configurables.
+- **Crítico**: ≥ 6 semanas sin descontar o contrato vencido con saldo. **Riesgo**: ≥ 2 semanas sin descontar, contrato que termina antes de amortizar o préstamo sin contrato localizado. Umbrales configurables.
 - Un contrato con **prórroga automática** cuya fecha ya pasó se considera prorrogado por periodos de 12 meses (configurable) y no genera riesgo de préstamo.
+
+> ⚖️ **Normativa**: en España la instalación de máquinas tipo B en hostelería la regula el reglamento de máquinas recreativas y de azar de cada comunidad autónoma (autorización de instalación o emplazamiento, su vigencia, renovación y preaviso). Duraciones, prórrogas y preavisos son parámetros de la barra lateral para adaptarlos a vuestra comunidad y a vuestros contratos tipo; la herramienta no sustituye el asesoramiento jurídico.
 
 ## 🚀 Instalación local con un clic (Windows)
 

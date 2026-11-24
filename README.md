@@ -5,7 +5,7 @@ Suite modular de herramientas en Python/Streamlit para la gestión diaria de una
 | Módulo | Estado | Descripción |
 |---|---|---|
 | [`01-auditor-recaudaciones`](01-auditor-recaudaciones/) | ✅ [Demo en vivo](https://auditor-recaudaciones.streamlit.app/) | Descuadres contadores vs efectivo, caídas de recaudación e informe ejecutivo. |
-| `02-gestor-contratos` | 🔜 Próximamente | Control de vencimientos de contratos. |
+| [`02-gestor-contratos`](02-gestor-contratos/) | ✅ Listo (demo en Streamlit Cloud pendiente) | Vencimientos de contratos con hosteleros, seguimiento de renovaciones y control de préstamos/anticipos. |
 | `03-optimizador-rutas` | 🔜 Próximamente | Optimización de rutas de recaudación. |
 
 Cada herramienta es independiente: tiene su propio `iniciar_*.bat`, `requirements.txt`, `.streamlit/config.toml` y `README.md`.

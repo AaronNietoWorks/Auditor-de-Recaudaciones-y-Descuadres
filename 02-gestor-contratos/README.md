@@ -11,6 +11,8 @@ Avisa de los contratos que vencen en 30/60/90 días, lleva el seguimiento de cad
 
 Módulo 2 de la suite [Automatizaciones TRUSS/CYTILAND](../README.md).
 
+**🔗 Demo en vivo: [gestor-contratos.streamlit.app](https://gestor-contratos.streamlit.app/)** (pulsa *Cargar datos de demostración*)
+
 ![Vencimientos](docs/vencimientos.png)
 
 ---

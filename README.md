@@ -4,7 +4,7 @@ Suite modular de herramientas en Python/Streamlit para la gestión diaria de una
 
 | Módulo | Estado | Descripción |
 |---|---|---|
-| [`01-auditor-recaudaciones`](01-auditor-recaudaciones/) | ✅ Disponible | Descuadres contadores vs efectivo, caídas de recaudación e informe ejecutivo. |
+| [`01-auditor-recaudaciones`](01-auditor-recaudaciones/) | ✅ [Demo en vivo](https://auditor-recaudaciones.streamlit.app/) | Descuadres contadores vs efectivo, caídas de recaudación e informe ejecutivo. |
 | `02-gestor-contratos` | 🔜 Próximamente | Control de vencimientos de contratos. |
 | `03-optimizador-rutas` | 🔜 Próximamente | Optimización de rutas de recaudación. |
 

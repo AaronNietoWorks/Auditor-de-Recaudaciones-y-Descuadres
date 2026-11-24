@@ -9,6 +9,8 @@ Detecta descuadres entre contadores y efectivo, vigila caídas de recaudación p
 ![Plotly](https://img.shields.io/badge/Plotly-Charts-3F4F75?logo=plotly&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-Histórico-003B57?logo=sqlite&logoColor=white)
 
+**🔗 Demo en vivo: [auditor-recaudaciones.streamlit.app](https://auditor-recaudaciones.streamlit.app/)** (pulsa *Cargar datos de demostración*)
+
 ![Descuadres](docs/descuadres.png)
 
 ---

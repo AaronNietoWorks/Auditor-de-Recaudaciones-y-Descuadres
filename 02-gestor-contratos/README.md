@@ -82,9 +82,21 @@ Decisiones de diseño:
 - Los contratos de instalación son de **5 años** (configurable). Si el listado no trae fecha de vencimiento, se calcula como fecha de alta + duración.
 - **Retraso** = importe que debería estar devuelto hoy − importe realmente amortizado (o importe − saldo pendiente).
 - **Crítico**: ≥ 6 semanas sin descontar o contrato vencido con saldo. **Riesgo**: ≥ 2 semanas sin descontar, contrato que termina antes de amortizar o préstamo sin contrato localizado. Umbrales configurables.
-- Un contrato con **prórroga automática** cuya fecha ya pasó se considera prorrogado por periodos de 12 meses (configurable) y no genera riesgo de préstamo.
+- Un contrato con **prórroga automática** cuya fecha ya pasó solo se considera prorrogado si activas la prórroga tácita en la barra lateral (por defecto no, según la normativa valenciana).
 
-> ⚖️ **Normativa**: en España la instalación de máquinas tipo B en hostelería la regula el reglamento de máquinas recreativas y de azar de cada comunidad autónoma (autorización de instalación o emplazamiento, su vigencia, renovación y preaviso). Duraciones, prórrogas y preavisos son parámetros de la barra lateral para adaptarlos a vuestra comunidad y a vuestros contratos tipo; la herramienta no sustituye el asesoramiento jurídico.
+### ⚖️ Normativa aplicada: Comunitat Valenciana (Vega Baja)
+
+La operadora trabaja en la Vega Baja (provincia de Alicante), así que los valores por defecto siguen la normativa valenciana de juego:
+
+| Aspecto | Qué dice la normativa | Cómo lo aplica la app |
+|---|---|---|
+| Marco legal | [Ley 1/2020, de 11 de junio, de regulación del juego y de prevención de la ludopatía en la Comunitat Valenciana](https://www.boe.es/buscar/doc.php?id=BOE-A-2020-11046) y el Reglamento de máquinas recreativas y de azar ([Decreto 115/2006](https://dogv.gva.es/auto/dogv/docvpub/rlgv/2006/D_2006_115_ca_D_2015_062.pdf)), que sigue vigente salvo en lo que deroga la ley. | Nota visible en la barra lateral y en los supuestos. |
+| Autorización de instalación en hostelería | La autorización vincula a la Administración, al titular del bar y a la operadora. Tiene una duración determinada, se extingue al acabar el plazo y su renovación la concede la Administración (art. 24 y 25 de la Ley 1/2020). El proyecto de ley redujo la vigencia de 10 a 5 años y suprimió la prórroga automática ([AZARplus](https://www.azarplus.com/repasamos-algunos-aspectos-clave-de-la-ley-del-juego-de-valencia/)). La renovación se tramita con los impresos J10/J11 de la [sede de la GVA](https://sede.gva.es/en/detall-tramit?id_proc=51). | **Duración por defecto: 60 meses (5 años).** **Prórroga tácita desactivada por defecto** (0 meses): un contrato vencido sale como *Vencido* aunque diga «prórroga automática». Se puede activar si vuestros contratos privados con el bar sí se prorrogan solos. |
+| Máquinas por bar | Máximo de **2 máquinas tipo B** por establecimiento de hostelería, y prohibidas en terrazas. | Aviso en *Vencimientos* si un contrato tiene más de 2 máquinas. |
+| Cambios recientes | El Decreto 77/2026, de 29 de mayo, limita las nuevas autorizaciones tipo B en locales que no la tuvieran antes, y la inactividad prolongada (5 años) puede suponer la baja del local en el Registro General de Juego ([Sector del Juego, 07/09/2026](https://sectordeljuego.com/2026/09/07/los-hosteleros-valencianos-disponen-de-varias-vias-para-evitar-la-perdida-de-la-autorizacion-de-instalacion-de-maquinas-b/)). | Motivo de más para no dejar vencer una autorización: renovar es mucho más fácil que conseguir una nueva. |
+| Préstamos al hostelero | La ley prohíbe dar crédito **a los jugadores** (art. 3.3), pero no regula los préstamos de la operadora al titular del bar: se rigen por el contrato privado. | Sin restricción en la app. |
+
+> No hay una norma que fije la duración del **contrato privado** entre operadora y bar ni un plazo de preaviso: eso depende de lo firmado. La app no sustituye el asesoramiento jurídico. Conviene confirmar con la gestoría los plazos exactos de solicitud de renovación de la autorización.
 
 ## 🚀 Instalación local con un clic (Windows)
 
@@ -125,7 +137,7 @@ streamlit run app.py
 
 `sample_data.py` genera, siempre respecto a la fecha de hoy, 25 contratos, 12 préstamos y 12 meses de recaudación **ficticios** con:
 
-- 2 contratos vencidos, 2 prorrogados tácitamente, 4 urgentes, 3 próximos y 2 a planificar;
+- 4 contratos vencidos (2 de ellos con «prórroga automática»), 3 urgentes, 3 próximos y 2 a planificar, y 1 bar con 3 máquinas;
 - 3 préstamos con cuotas atrasadas (1 crítico), 3 cuyo contrato vence antes de amortizarse, 1 con contrato ya vencido y 1 ya devuelto.
 
 Ningún dato real de clientes ni de la empresa forma parte del repositorio.

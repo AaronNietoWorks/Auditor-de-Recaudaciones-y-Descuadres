@@ -39,6 +39,7 @@ En el día a día eso se controla con listados sueltos y la memoria del comercia
 | **Control de préstamos** | Cuota **semanal o mensual** (descontada de la recaudación de la máquina), saldo pendiente, **semanas sin descontar** (lo que debería estar devuelto vs. lo devuelto), fecha prevista de fin y **saldo que quedaría al vencer el contrato**. Semáforo: 🔴 Crítico · 🟠 Riesgo · 🟢 Al día · ⚪ Amortizado. |
 | **Cruce con recaudación** | Recaudación media mensual por bar para **priorizar renovaciones por dinero en juego** y ver qué parte de la liquidación del bar se va en la cuota. |
 | **Dashboard e informe** | KPIs (contratos por renovar, recaudación en juego, capital pendiente y en riesgo, horas ahorradas), gráficos Plotly y Excel multi-pestaña (`Resumen_Ejecutivo`, `Vencimientos`, `Prestamos`, `Calendario_Cobros`). |
+| **Modo claro y oscuro** | Tema corporativo TRUSS & CYTILAND, igual que el resto de la suite; tarjetas y gráficos se adaptan (menú ⋮ → *Settings*). |
 
 | Préstamos | Seguimiento de renovaciones |
 |---|---|

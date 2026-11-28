@@ -1,5 +1,5 @@
 """
-app.py — Gestor de Contratos y Préstamos a Hosteleros (IPS-Maq+)
+app.py — TRUSS & CYTILAND · Gestor de Contratos y Préstamos a Hosteleros (IPS-Maq+)
 =================================================================
 Interfaz Streamlit. Ejecuta:  streamlit run app.py
 """
@@ -16,50 +16,86 @@ import analyzer as az
 import database as db
 import sample_data
 
+EMPRESA = "TRUSS & CYTILAND"
+NOMBRE_APP = "Gestor de Contratos y Préstamos"
+
 st.set_page_config(
-    page_title="Gestor de Contratos",
+    page_title=f"{NOMBRE_APP} · {EMPRESA}",
     page_icon="📑",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 SIN_ASIGNAR = "— Sin asignar —"
-AZUL = "#0F4C81"
 ICONO_CONTRATO = {az.VENCIDO: "⛔", az.URGENTE: "🔴", az.PROXIMO: "🟠", az.PLANIFICAR: "🔵", az.VIGENTE: "🟢"}
 ICONO_PRESTAMO = {az.P_CRITICO: "🔴", az.P_RIESGO: "🟠", az.P_AL_DIA: "🟢", az.P_AMORTIZADO: "⚪"}
 
 # --------------------------------------------------------------------------- #
-# Estilos (mismos que el Auditor de Recaudaciones)
+# Tema claro / oscuro (igual que el Auditor de Recaudaciones)
 # --------------------------------------------------------------------------- #
+# Streamlit aplica el tema nativo (config.toml define [theme.light] y [theme.dark]) según el sistema o lo
+# elegido en el menú ⋮. Aquí se detecta cuál está activo para adaptar tarjetas HTML y gráficos Plotly.
+PALETAS = {
+    "light": {
+        "texto": "#0F2A4A", "texto_sec": "#64748B", "tarjeta": "#FFFFFF", "borde": "#E2E8F0",
+        "sombra": "rgba(15, 42, 74, .06)", "acento": "#0F4C81",
+        "hero": "linear-gradient(135deg, #0F4C81 0%, #1E6FB8 100%)", "hero_txt": "#E0ECF8",
+        "venc_bg": "#F5D0D0", "venc_tx": "#7F1D1D", "crit_bg": "#FDE2E2", "crit_tx": "#991B1B",
+        "rev_bg": "#FEF3C7", "rev_tx": "#92400E", "plan_bg": "#DBEAFE", "plan_tx": "#1E3A8A",
+        "ok_bg": "#DCFCE7", "ok_tx": "#166534", "gris_bg": "#F1F5F9", "gris_tx": "#475569",
+        "plotly": "plotly_white", "rejilla": "#E5E7EB", "neutro": "#94A3B8", "barra_gris": "#CBD5E1",
+    },
+    "dark": {
+        "texto": "#E6EDF5", "texto_sec": "#94A3B8", "tarjeta": "#16202E", "borde": "#26344A",
+        "sombra": "rgba(0, 0, 0, .35)", "acento": "#4C9BE8",
+        "hero": "linear-gradient(135deg, #12355C 0%, #1B5288 100%)", "hero_txt": "#C9DDF2",
+        "venc_bg": "rgba(127,29,29,.45)", "venc_tx": "#FECACA", "crit_bg": "rgba(239,68,68,.18)",
+        "crit_tx": "#FCA5A5", "rev_bg": "rgba(245,158,11,.18)", "rev_tx": "#FCD34D",
+        "plan_bg": "rgba(76,155,232,.18)", "plan_tx": "#93C5FD", "ok_bg": "rgba(34,197,94,.16)",
+        "ok_tx": "#86EFAC", "gris_bg": "rgba(148,163,184,.14)", "gris_tx": "#CBD5E1",
+        "plotly": "plotly_dark", "rejilla": "#26344A", "neutro": "#64748B", "barra_gris": "#475569",
+    },
+}
+try:
+    _tipo_tema = st.context.theme.type or "light"
+except AttributeError:  # versiones antiguas de Streamlit
+    _tipo_tema = "light"
+OSCURO = _tipo_tema == "dark"
+P = PALETAS["dark" if OSCURO else "light"]
+AZUL = P["acento"]
+TEMA_FIG = dict(template=P["plotly"], paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font_color=P["texto"])
+
 st.markdown(
-    """
+    f"""
     <style>
-      .block-container {padding-top: 3.2rem; padding-bottom: 3rem; max-width: 1400px;}
-      .titulo {font-size: 1.9rem; font-weight: 750; color: #0F2A4A; margin-bottom: 0;}
-      .subtitulo {color: #64748B; margin-top: .15rem; margin-bottom: 1.2rem;}
-      .kpi {background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px;
-            padding: 18px 20px; box-shadow: 0 1px 3px rgba(15, 42, 74, .06); height: 100%;}
-      .kpi .lbl {font-size: .78rem; color: #64748B; text-transform: uppercase;
-                 letter-spacing: .04em; font-weight: 600;}
-      .kpi .val {font-size: 1.6rem; font-weight: 750; color: #0F2A4A; margin-top: 4px;
-                 white-space: nowrap;}
-      .kpi .det {font-size: .80rem; color: #64748B; margin-top: 2px;}
-      .kpi.azul  {border-left: 5px solid #0F4C81;}
-      .kpi.rojo  {border-left: 5px solid #DC2626;}
-      .kpi.ambar {border-left: 5px solid #F59E0B;}
-      .kpi.verde {border-left: 5px solid #16A34A;}
-      .chip {display:inline-block; padding: 3px 12px; border-radius: 999px; font-weight: 600;
-             font-size: .85rem; margin: 0 6px 6px 0;}
-      .chip.venc {background:#F5D0D0; color:#7F1D1D;}
-      .chip.crit {background:#FDE2E2; color:#991B1B;}
-      .chip.rev {background:#FEF3C7; color:#92400E;}
-      .chip.plan {background:#DBEAFE; color:#1E3A8A;}
-      .chip.ok {background:#DCFCE7; color:#166534;}
-      .chip.gris {background:#F1F5F9; color:#475569;}
-      .hero {background: linear-gradient(135deg, #0F4C81 0%, #1E6FB8 100%); color: #fff;
-             border-radius: 16px; padding: 28px 32px; margin-bottom: 1rem;}
-      .hero h3 {color: #fff; margin: 0 0 .4rem 0;}
-      .hero p {color: #E0ECF8; margin: 0;}
+      .block-container {{padding-top: 3.2rem; padding-bottom: 3rem; max-width: 1400px;}}
+      .marca {{font-size: .78rem; font-weight: 700; letter-spacing: .18em; color: {P["acento"]};
+               text-transform: uppercase; margin-bottom: .1rem;}}
+      .titulo {{font-size: 1.9rem; font-weight: 750; color: {P["texto"]}; margin-bottom: 0;}}
+      .subtitulo {{color: {P["texto_sec"]}; margin-top: .15rem; margin-bottom: 1.2rem;}}
+      .kpi {{background: {P["tarjeta"]}; border: 1px solid {P["borde"]}; border-radius: 14px;
+            padding: 18px 20px; box-shadow: 0 1px 3px {P["sombra"]}; height: 100%;}}
+      .kpi .lbl {{font-size: .78rem; color: {P["texto_sec"]}; text-transform: uppercase;
+                 letter-spacing: .04em; font-weight: 600;}}
+      .kpi .val {{font-size: 1.6rem; font-weight: 750; color: {P["texto"]}; margin-top: 4px;
+                 white-space: nowrap;}}
+      .kpi .det {{font-size: .80rem; color: {P["texto_sec"]}; margin-top: 2px;}}
+      .kpi.azul  {{border-left: 5px solid {P["acento"]};}}
+      .kpi.rojo  {{border-left: 5px solid #DC2626;}}
+      .kpi.ambar {{border-left: 5px solid #F59E0B;}}
+      .kpi.verde {{border-left: 5px solid #16A34A;}}
+      .chip {{display:inline-block; padding: 3px 12px; border-radius: 999px; font-weight: 600;
+             font-size: .85rem; margin: 0 6px 6px 0;}}
+      .chip.venc {{background:{P["venc_bg"]}; color:{P["venc_tx"]};}}
+      .chip.crit {{background:{P["crit_bg"]}; color:{P["crit_tx"]};}}
+      .chip.rev {{background:{P["rev_bg"]}; color:{P["rev_tx"]};}}
+      .chip.plan {{background:{P["plan_bg"]}; color:{P["plan_tx"]};}}
+      .chip.ok {{background:{P["ok_bg"]}; color:{P["ok_tx"]};}}
+      .chip.gris {{background:{P["gris_bg"]}; color:{P["gris_tx"]};}}
+      .hero {{background: {P["hero"]}; color: #fff; border-radius: 16px; padding: 28px 32px; margin-bottom: 1rem;}}
+      .hero h3 {{color: #fff; margin: 0 0 .4rem 0;}}
+      .hero p {{color: {P["hero_txt"]}; margin: 0;}}
     </style>
     """,
     unsafe_allow_html=True,
@@ -227,8 +263,8 @@ def cb_vaciar() -> None:
 # Barra lateral: parámetros
 # --------------------------------------------------------------------------- #
 with st.sidebar:
-    st.markdown("### 📑 Gestor de Contratos")
-    st.caption("Vencimientos y préstamos a hosteleros · IPS-Maq+")
+    st.markdown(f"### 📑 {NOMBRE_APP}")
+    st.caption(f"{EMPRESA} · Vencimientos y préstamos a hosteleros · IPS-Maq+")
 
     fecha_ref = st.date_input("Fecha de referencia", value=date.today(), format="DD/MM/YYYY", key="fecha_ref",
                               help="Normalmente hoy. Cámbiala para ver cómo estará la cartera en otra fecha.")
@@ -289,6 +325,7 @@ with st.sidebar:
 # --------------------------------------------------------------------------- #
 # Cabecera y mensajes
 # --------------------------------------------------------------------------- #
+st.markdown(f'<div class="marca">{EMPRESA}</div>', unsafe_allow_html=True)
 st.markdown('<div class="titulo">Gestor de Contratos y Préstamos a Hosteleros</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitulo">Anticipa los vencimientos de contratos, controla lo que te deben los '
@@ -489,7 +526,7 @@ with tab_venc:
                     size = (8 + 22 * (t / tam.max())).fillna(10) if t is not None and tam.max() > 0 else 12
                     fig.add_trace(go.Scatter(
                         x=h["fin_efectivo"], y=h["bar"], mode="markers", name=e,
-                        marker=dict(color=az.COLOR_CONTRATO[e], size=size, line=dict(width=1, color="#fff")),
+                        marker=dict(color=az.COLOR_CONTRATO[e], size=size, line=dict(width=1, color=P["tarjeta"])),
                         customdata=list(zip(h["dias_restantes"], h["contrato"],
                                             [eur(v, 0) for v in (t if t is not None else [None] * len(h))])),
                         hovertemplate="<b>%{y}</b><br>Vence: %{x|%d/%m/%Y} (%{customdata[0]} días)<br>"
@@ -498,10 +535,10 @@ with tab_venc:
                 ref_ts = pd.Timestamp(fecha_ref)
                 for d, txt in [(0, "Hoy")] + [(u, f"{u} d") for u in umbrales]:
                     fig.add_vline(x=ref_ts + pd.Timedelta(days=d), line_dash="dot" if d else "solid",
-                                  line_color="#94A3B8" if d else "#0F2A4A", line_width=1)
+                                  line_color=P["neutro"] if d else P["texto"], line_width=1)
                     fig.add_annotation(x=ref_ts + pd.Timedelta(days=d), y=1.02, yref="paper", text=txt,
-                                       showarrow=False, font=dict(size=11, color="#475569"))
-                fig.update_layout(template="plotly_white", height=max(360, 24 * len(horizonte) + 110),
+                                       showarrow=False, font=dict(size=11, color=P["texto_sec"]))
+                fig.update_layout(**TEMA_FIG, height=max(360, 24 * len(horizonte) + 110),
                                   title="Vencimientos de los próximos 12 meses"
                                         + (" (tamaño = recaudación mensual)" if not tam.empty else ""),
                                   margin=dict(l=10, r=10, t=60, b=10), legend=dict(orientation="h", y=-0.12),
@@ -513,7 +550,7 @@ with tab_venc:
             fig = go.Figure(go.Pie(labels=dist.index, values=dist.values, hole=.62, sort=False,
                                    marker=dict(colors=[az.COLOR_CONTRATO[e] for e in dist.index]),
                                    textinfo="none", hovertemplate="%{label}: %{value} (%{percent})<extra></extra>"))
-            fig.update_layout(template="plotly_white", height=360, margin=dict(l=10, r=10, t=50, b=10),
+            fig.update_layout(**TEMA_FIG, height=360, margin=dict(l=10, r=10, t=50, b=10),
                               title="Cartera de contratos", legend=dict(orientation="h", y=-0.1),
                               annotations=[dict(text=f"<b>{len(cont)}</b><br>contratos", showarrow=False,
                                                 font_size=14)])
@@ -611,7 +648,7 @@ with tab_prest:
             act = prest[prest["pendiente"] > 0.01].sort_values("pendiente")
             fig = go.Figure()
             fig.add_trace(go.Bar(y=act["bar"], x=act["amortizado"], orientation="h", name="Devuelto",
-                                 marker_color="#CBD5E1",
+                                 marker_color=P["barra_gris"],
                                  hovertemplate="%{y}<br>Devuelto: %{x:,.0f} €<extra></extra>"))
             fig.add_trace(go.Bar(y=act["bar"], x=act["pendiente"], orientation="h", name="Pendiente",
                                  marker_color=[az.COLOR_PRESTAMO[e] for e in act["estado"]],
@@ -624,7 +661,7 @@ with tab_prest:
                                          customdata=ex["expuesto_fin_contrato"],
                                          hovertemplate="%{y}<br>Quedarían %{customdata:,.0f} € al vencer el "
                                                        "contrato<extra></extra>"))
-            fig.update_layout(template="plotly_white", barmode="stack", title="Préstamos activos: devuelto vs pendiente",
+            fig.update_layout(**TEMA_FIG, barmode="stack", title="Préstamos activos: devuelto vs pendiente",
                               height=max(360, 28 * len(act) + 110), margin=dict(l=10, r=10, t=50, b=10),
                               legend=dict(orientation="h", y=-0.12), xaxis=dict(ticksuffix=" €"))
             st.plotly_chart(fig, width="stretch")
@@ -633,7 +670,7 @@ with tab_prest:
                 mes = calendario.groupby("mes", as_index=False)["cuota"].sum()
                 fig = go.Figure(go.Bar(x=mes["mes"], y=mes["cuota"], marker_color=AZUL,
                                        hovertemplate="%{x|%m/%Y}: %{y:,.0f} €<extra></extra>"))
-                fig.update_layout(template="plotly_white", title="Previsión de cobro de cuotas (24 meses)",
+                fig.update_layout(**TEMA_FIG, title="Previsión de cobro de cuotas (24 meses)",
                                   height=360, margin=dict(l=10, r=10, t=50, b=10), yaxis=dict(ticksuffix=" €"),
                                   xaxis=dict(tickformat="%m/%Y"))
                 st.plotly_chart(fig, width="stretch")

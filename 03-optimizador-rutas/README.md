@@ -11,9 +11,9 @@ Decide cada mañana a qué bares toca ir, en qué orden y a qué hora se llega a
 
 Módulo 3 de la suite [Automatizaciones TRUSS/CYTILAND](../README.md).
 
-**🔗 Demo en vivo: [optimizador-rutas.streamlit.app](https://optimizador-rutas.streamlit.app/)** (pulsa *Cargar datos de demostración*)
+**🔗 Demo en vivo: [optimizador-rutas-averias.streamlit.app](https://optimizador-rutas-averias.streamlit.app/)** (pulsa *Cargar datos de demostración*)
 
-![Ruta del día](docs/ruta.png)
+![Ruta del día (modo oscuro)](docs/ruta.png)
 
 ---
 

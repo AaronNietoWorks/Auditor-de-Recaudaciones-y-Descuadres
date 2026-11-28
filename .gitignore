@@ -17,6 +17,7 @@
 # Excepción: datos 100 % ficticios generados por sample_data.py
 !**/datos_ejemplo_ips.xlsx
 !**/datos_ejemplo_contratos.xlsx
+!**/datos_ejemplo_rutas.xlsx
 
 # Plantillas de mapeo locales (pueden revelar el formato interno de la empresa)
 config_columnas.json

@@ -277,7 +277,11 @@ def clave_bar(texto) -> str:
 
 
 def _texto(serie: pd.Series) -> pd.Series:
-    return serie.astype(str).str.strip().replace({"nan": "", "None": "", "<NA>": ""})
+    # astype(object) primero: con pandas 3 (dtype «str») un NaN sobrevive a astype(str) y no se detectaba vacío.
+    # Códigos numéricos leídos de Excel (12345.0) se muestran como 12345.
+    obj = serie.astype(object).where(serie.notna(), "")
+    obj = obj.map(lambda v: str(int(v)) if isinstance(v, float) and v.is_integer() else v)
+    return obj.astype(str).str.strip().replace({"nan": "", "None": "", "<NA>": "", "NaT": ""})
 
 
 DURACION_CONTRATO_MESES = 60      # contratos de instalación habituales: 5 años

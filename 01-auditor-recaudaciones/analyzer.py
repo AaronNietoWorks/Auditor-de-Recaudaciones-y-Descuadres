@@ -178,8 +178,8 @@ def aplicar_mapeo(df: pd.DataFrame, mapeo: dict) -> tuple[pd.DataFrame, list[str
                               if mapeo.get("liquidacion_bar") else np.nan)
     out["fecha"] = out["fecha"].dt.normalize()
 
-    invalidas = out["fecha"].isna() | out["bar"].isin(["", "nan", "None"]) \
-        | out["maquina"].isin(["", "nan", "None"])
+    invalidas = out["fecha"].isna() | out["bar"].isna() | out["maquina"].isna() \
+        | out["bar"].isin(["", "nan", "None"]) | out["maquina"].isin(["", "nan", "None"])
     if invalidas.any():
         avisos.append(f"Se descartaron {int(invalidas.sum())} filas sin fecha, bar o máquina válidos "
                       "(totales, subtotales o filas vacías).")

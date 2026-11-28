@@ -130,8 +130,8 @@ Ningún dato real de clientes ni de la empresa forma parte del repositorio.
 
 ## 🗺️ Próximos pasos
 
-- Control de vencimientos de contratos de establecimientos.
-- Optimización de rutas de recaudación.
+- ✅ Control de vencimientos de contratos: [02-gestor-contratos](../02-gestor-contratos/).
+- ✅ Optimización de rutas de recaudación y averías por modelo: [03-optimizador-rutas](../03-optimizador-rutas/).
 - Alertas por correo programadas.
 
 ---
